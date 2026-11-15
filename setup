@@ -1,7 +1,6 @@
 #!/bin/sh
-# brain.md installer — thin wrapper around the Node installer.
-# Prefer: npm install -g brain-md && brain setup
-# Or from a checkout: ./setup  (same as: node bin/brain.mjs setup)
+# brain.md setup — link the `brain` skill into Pi and wire its global AGENTS.md.
+# From a checkout: ./setup        (same as: node skills/brain/bin/brain.mjs setup)
 set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
-exec node "$SCRIPT_DIR/bin/brain.mjs" setup "$@"
+exec node "$SCRIPT_DIR/skills/brain/bin/brain.mjs" setup "$@"

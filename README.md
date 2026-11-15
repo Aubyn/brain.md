@@ -1,236 +1,241 @@
-<p align="center">
-  <img src="https://projectbrain.md/icon.svg" width="84" height="84" alt="brain.md">
-</p>
+# brain.md
 
-<h1 align="center">brain.md</h1>
+**给编码 Agent 的持久项目记忆** —— 把耐久的决策、约束与背景写成纯 Markdown，**存放在仓库之外**，由一个小巧的零依赖 CLI 负责读写。
 
-<p align="center">
-  <b>A persistent, file-based memory layer for your coding agents.</b><br>
-  An open, agent-agnostic standard for capturing a project's durable knowledge as plain
-  Markdown — read and written through one small CLI. It lives in your repo and travels across agents, machines, and models.
-</p>
+brain 不是项目里的一个目录。它按**项目身份**定位，所以同一个项目在任意 checkout、worktree、不同 Agent 和不同机器上共享同一份记忆；没有 git 的项目同样成立。
 
-<p align="center">
-  <img src="https://img.shields.io/badge/license-Apache--2.0-171717?style=flat-square" alt="License: Apache-2.0">
-  <img src="https://img.shields.io/badge/CLI-zero%20dependencies-171717?style=flat-square" alt="Zero-dependency CLI">
-  <img src="https://img.shields.io/badge/agents-Claude%20Code%20%C2%B7%20Codex%20%C2%B7%20Cursor%20%C2%B7%20Pi-171717?style=flat-square" alt="Agents: Claude Code, Codex, Cursor, Pi">
-  <img src="https://img.shields.io/badge/version-0.4.2-171717?style=flat-square" alt="Version 0.4.2">
-</p>
+## 为什么需要 brain
 
-<p align="center">
-  <a href="#why-a-brain">Why</a> ·
-  <a href="#quick-start">Quick start</a> ·
-  <a href="#see-it-work">See it work</a> ·
-  <a href="#the-brain-cli">CLI</a> ·
-  <a href="#how-it-works">How it works</a>
-</p>
+编码 Agent 的知识没有耐久载体。决策背后的理由、你们约定的约束、被放弃的那条路——都留在聊天记录和你的脑子里，会话一结束就消失，下一次从零开始。
 
----
+brain 把这件事接住：它是项目的持久记忆，把耐久的决策、需求和约束写下来，并在日常开发中持续维护。
 
-This repository is the **toolkit**, not a brain itself. Install it once, then in any project run
-`brain init`: it scaffolds a [`BRAIN.md`](./skills/brain-setup/assets/BRAIN.md) protocol file, a
-`brain/` directory, and default-wires agent config files into **your** repo. From then on, any
-coding agent — Claude Code, Codex, anything that reads files — learns to use that brain just by
-reading the project's `BRAIN.md`. The brain is plain Markdown, lives in the repo, and outlives
-every session.
+- **仓库之外**——不需要提交 `brain/` 目录或协议文件，不污染 diff。
+- **按身份寻址**——`git remote` → git common dir → 绝对路径三级回落，新克隆、worktree、在子目录里 `cd` 都落到同一个 store。
+- **构造即正确**——所有写入都走 CLI。没有校验器，因为 frontmatter 永远由 CLI 生成，`compiled_truth` 的改写也永远不可能漏掉时间线条目。
+- **Agent 无关的 Markdown**——存储本身任何工具都能读；一个技能教会 Pi 如何使用它。
 
-## Why a brain
+判断什么该写进去：**六个月后它是否仍然重要，并且很难从代码本身还原？** 是，就写进 brain。
 
-A coding agent's knowledge lives nowhere durable. The reasons behind a decision, the
-constraints you agreed on, the path *not* taken — they sit in chat logs and in your head,
-and they vanish the moment the session ends. The next agent starts from zero.
+## 安装（仅 Pi）
 
-A brain fixes that. It is the project's **persistent memory**: the durable decisions,
-requirements, and constraints, written down as plain Markdown next to the code.
+不发布 npm 包。克隆仓库，把技能链接进 Pi：
 
-- **Repo-native** — Markdown that lives in your project and travels in git, with or without a runtime on top.
-- **Agent-agnostic** — the contract is a file (`BRAIN.md`). Any agent that can read it can use the brain.
-- **Correct by construction** — every write goes through the `brain` CLI, so the brain's
-  invariants can't be broken by a malformed edit. There is no validator because none is needed.
-
-The test for what belongs in it: **will this still matter in six months, and is it hard to
-reconstruct from the code itself?** If yes, it goes in the brain. Pure implementation details
-and anything readable straight from the code and git history stay where they are.
-
-## Quick start
-
-**1. Install the tools once (global) — no clone required.** This puts `brain` on your `PATH` and copies skills into every detected agent (`~/.claude/skills`, …):
-
-```bash
-npm install -g @mindmux/brain-md
-brain setup -y
-# reverse: brain uninstall   # never touches any project's brain data
+```sh
+git clone <这个仓库> ~/src/brain.md
+cd ~/src/brain.md
+./setup
 ```
 
-Prefer not to install globally? Use `npx` for **both** steps (npx does not leave `brain` on your `PATH`):
+`./setup` 做两件事：
 
-```bash
-npx @mindmux/brain-md setup -y
-npx @mindmux/brain-md init          # same as step 2 — not bare `brain init`
-# reverse: npx @mindmux/brain-md uninstall
+1. 把 `skills/brain` 软链到 `<agent-dir>/skills/brain`（默认 `~/.pi/agent/skills/brain`）；
+2. 在 `<agent-dir>/AGENTS.md` 写入带标记的 brain 指令块，让本机每个 Pi 会话都知道要用它。
+
+只接入 Pi。**不会**往 `~/.claude`、`~/.codex` 或其他 Agent 的配置目录拷任何东西。Pi 的 agent 目录默认是 `~/.pi/agent`，可用 `PI_CODING_AGENT_DIR` 覆盖；写入的指令块会带上对应 CLI 的绝对路径。
+
+```sh
+./setup --no-wire      # 只建链接，不动 AGENTS.md
+./uninstall            # 只删这条链接和带标记的指令块
 ```
 
-From a git checkout of this repo you can still run `./setup` (same installer; use `--symlink` while developing the toolkit).
+安装/卸载永远不会碰项目的数据。
 
-**2. Initialize a project** (from the project root; requires the global install from step 1, or use `npx @mindmux/brain-md init` above):
+## 快速开始
 
-```bash
-brain init
-# or, after setup only (no global bin): node ~/.claude/skills/brain-page/bin/brain.mjs init
+在项目根目录执行（git 仓库里任意子目录也能解析到同一个 store）：
+
+```sh
+brain() { node "${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/skills/brain/bin/brain.mjs" "$@"; }
+
+brain where     # store 路径、身份、来源、页数
+brain init      # 不存在时创建 store（幂等）
+brain list-pages
 ```
 
-This ensures `BRAIN.md`, scaffolds empty brain data (brainRoot-aware), and **default-wires**
-`CLAUDE.md` + `AGENTS.md` (creates them if missing; if they already exist, only updates the
-marked brain block — never whole-file overwrite). Optionally use the **brain-setup** skill for
-the same flow plus a pre-commit hook, or `brain install-hooks` for a project-local Claude Code
-SessionStart snapshot (`--agent codex` for Codex).
+然后播种知识。让 Agent 按 `brain` 技能的
+[`references/bootstrap.md`](skills/brain/references/bootstrap.md) 执行：已有项目会读代码、文档和 `git log` 起草；近乎空白的项目则先访谈你。
 
-**3. Seed real knowledge** — run the **brain-bootstrap** skill. On an existing project it reads
-the code, docs, and `git log` to draft the root pages and capture key decisions; on a near-empty
-one it interviews you. (Init leaves content seeding as a deliberate next step.)
+## brain 是怎样运行的
 
-**4. Work as usual.** Maintain the brain **while coding**: load relevant pages at task start;
-capture decisions/constraints when they settle; skip pure implementation noise; reverse when
-overturning. All reads/writes go through the `brain` CLI following `BRAIN.md` — never hand-edit
-brain files.
+### 首次安装与接入
 
-## See it work
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant S as ./setup
+    participant F as 文件系统
 
-The point of a brain is what happens *across* sessions — a decision made today is still
-there, with its rationale, weeks later:
+    U->>S: 在仓库 checkout 里运行 ./setup
+    S->>F: 建软链 &lt;agent-dir&gt;/skills/brain → &lt;checkout&gt;/skills/brain
+    Note right of F: 文件系统变化：<br/>新增一个符号链接<br/>仓库本身不被修改
 
-```text
-You    Let's store config as Markdown, not SQLite — easier to diff and migrate.
+    S->>F: 读取 &lt;agent-dir&gt;/AGENTS.md（缺则创建）
+    S->>F: 写入/刷新 BEGIN/END brain.md 标记块
+    Note right of F: 只替换标记之间；<br/>标记之外的用户内容原样保留
+    Note over U: 用户可见：重启 Pi 后，技能列表里出现 brain
 
-Agent  Capturing that as a decision so it outlives this session.
-       $ brain create-page --id config-as-markdown --category decision \
-             --title "Store config as Markdown, not SQLite"
-       ✓ page created · indexed
-
-— three weeks and a fresh session later —
-
-You    Why aren't we using a database for config?
-
-Agent  $ brain read-page config-as-markdown
-       We chose Markdown for diff-ability and zero migrations. Here's the original call
-       and the trade-offs we weighed …
+    U->>S: 在项目根目录运行 brain where
+    S->>F: 解析 git remote / common dir / 绝对路径
+    S-->>U: store 路径 + identity + source
+    Note over U: 用户可见：一眼看到这个项目的记忆存在哪里
+    U->>S: brain init
+    S->>F: 创建 $BRAIN_HOME/&lt;key&gt;/{pages,index.md}
+    Note right of F: 幂等：已存在的 store 不会被覆盖
 ```
 
-## The `brain` CLI
+### 日常一次会话
 
-Reading and writing the brain both go through one zero-dependency Node CLI (run with `node`):
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant A as Agent（Pi）
+    participant C as brain CLI
+    participant P as 项目目录（git 工作区）
+    participant S as brain store<br/>$BRAIN_HOME/&lt;key&gt;
 
-```bash
-brain() { node skills/brain-page/bin/brain.mjs "$@"; }   # or use the global `brain` bin after npm install -g
+    U->>A: 在项目里提出需求 / 继续开发
+    Note over A: 新会话，没有上下文
+    A->>C: brain where
+    C->>P: 读取 git remote / common dir / 路径
+    P-->>C: 项目身份
+    C-->>A: store 路径（source: git-remote）
+    Note right of S: 只读定位，不创建任何文件
 
-brain init                                   # BRAIN.md + skeleton + default wire CLAUDE.md / AGENTS.md
-brain wire                                   # same default wire (no --agent needed)
-brain install-hooks                          # opt-in Claude Code SessionStart snapshot (project-local)
-brain uninstall-hooks                        # remove that SessionStart hook
-brain install-hooks --agent codex            # opt-in Codex startup/resume/compaction snapshot
-brain uninstall-hooks --agent codex          # remove only the Codex hook
-brain brain-dir                              # where is the brain?
-brain list-pages                             # list pages
-brain read-page my-decision                  # read a page
+    A->>C: brain list-pages
+    C->>S: 读 pages/*.md、index.md
+    S-->>C: 页面清单（id / 分类 / 条数 / 标题）
+    C-->>A: 13 个页面
+    Note over U: 用户可见：Agent 主动引用历史结论，不再重开旧话题
+
+    A->>C: brain read-page auth-flow
+    C->>S: 读 pages/auth-flow.md
+    S-->>C: compiled_truth + timeline
+    C-->>A: 当前结论与证据链
+    Note over A: 视图/上下文变化：<br/>相关页面进入会话上下文
+
+    U->>A: 讨论中定下一个新决策
+    Note over U: 用户可见：Agent 说“我把它记下来”
+    A->>C: brain create-page --id ... --category decision
+    C->>S: 写 pages/&lt;id&gt;.md（frontmatter + 空结论 + 时间线种子）
+    C->>S: 重写 index.md
+    C-->>A: created（1 pages）
+    Note right of S: 文件系统变化：<br/>新增 pages/&lt;id&gt;.md<br/>index.md 被重建
+
+    A->>C: brain update-truth --id ...（填充/修正结论）
+    C->>S: 原子写：替换 compiled_truth + 追加 decision 条目 + 更新 updated
+    C->>S: 重写 index.md
+    C-->>A: rewritten
+    Note right of S: “结论变了”和“为什么变”<br/>在同一次写入中落盘
+
+    opt 页面达到上限（30 条 timeline 或 15 条 decision）
+        A->>C: brain append-timeline ...
+        C-->>A: 拒绝：30 timeline entries (cap 30)
+        Note over U: 用户可见：Agent 说明页面已满，并给出出路
+        alt 压缩（推荐）
+            A->>C: brain update-truth（合并后的结论，永不拦截）
+        else 拆分
+            A->>C: brain create-page（新命题）
+        else 强制
+            A->>C: brain append-timeline --force
+        end
+    end
+
+    opt 旧结论被取代
+        A->>C: brain archive-page --id old --superseded-by new
+        C->>S: body 改为指向 [[new]] 的指针，status: archived
+        C-->>A: archived
+        Note over U: 用户可见：旧页只读，但保留指向新页的线索
+    end
+
+    Note over U,S: 会话结束。下一次新会话重复 3–6 步：<br/>记忆不依赖仓库，也不依赖当前目录里有没有 brain/
+```
+
+## brain 存在哪里
+
+```
+$BRAIN_HOME/<project-key>        # BRAIN_HOME 默认 ~/brain.md
+├── index.md                      # brain reindex 生成
+├── pages/<page-id>.md            # 增量知识
+└── background.md / architecture.md / flow.md / mindmap.md / stack.md / roadmap.md
+```
+
+`<project-key>` = `<可读 slug>-<sha256(identity)[0..8]>`，身份按三级回落：
+
+| 级别 | 身份 | `brain where` 的 `source:` |
+|---|---|---|
+| 1 | 归一化后的 git remote（`git@github.com:o/r.git` → `github.com/o/r`） | `git-remote` |
+| 2 | git 绝对 common dir | `git-common-dir` |
+| 3 | 项目绝对路径 | `path` |
+
+因此：有 remote 的仓库跨 clone/worktree 共享一个 brain；无 remote 的仓库经 common dir 在 worktree 间共享；没有 git 的目录也能用。`brain where` 永远告诉你解析结果——每个项目只存在一个 store，工具不会偷偷建影子副本。
+
+## 一页一命题
+
+每个页面包含可整体改写的 **compiled_truth**（当前最佳理解）和只追加的 **timeline**（证据与反转）。为防止页面变成垃圾桶，CLI 强制：
+
+- `append-timeline` 在页面已有 **30 条 timeline** 或 **15 条 decision** 时拒绝（`--force` 放行）。出路：拆成新页面，或压缩合并。
+- `update-truth` **永不**拦截：改写结论正是把页面重新变小的手段。它总会在同一次原子写入中追加一条 `decision` 条目。
+- `archive-page --id X --superseded-by Y` 把 `X` 变成指向 `[[Y]]` 的**只读指针**；之后任何写命令都不接受 `X`。
+
+六个页面分类：`project`、`concept`、`decision`、`person`、`organization`、`reference`。六个固定根页面槽位（`background`、`architecture`、`flow`、`mindmap`、`stack`、`roadmap`）承载项目级知识，按需创建。
+
+## CLI
+
+```sh
+brain where                       # 解析后的 store + 身份 + 页数
+brain init                        # 创建 store（幂等）
+brain list-pages                  # id、分类、状态、条目数、决策数、标题
+brain read-page <id>              # 输出 pages/<id>.md
+brain read-root <slug>            # 输出 <slug>.md
+
 brain create-page --id my-decision --category decision --title "Use X over Y" \
-  --summary "why this page exists"
-echo "the new understanding" | brain update-truth --id my-decision --summary "why it changed"
-brain append-timeline --id my-decision --kind evidence --summary "benchmark confirmed it"
-printf '# System architecture\n\n## Overview\n\nRequests enter through the gateway.\n' | brain update-root architecture
+  --summary "为什么需要这一页"
+echo "新的理解" | brain update-truth --id my-decision --summary "为什么变了"
+brain append-timeline --id my-decision --kind evidence --summary "基准测试确认了它"
+brain archive-page --id old-decision --superseded-by new-decision --reason "被新方案取代"
+printf '# 系统架构\n\n请求先经过网关。\n' | brain update-root architecture
+
 brain reindex && brain lint-links
+brain setup | brain uninstall | brain wire      # 机器级，仅 Pi
 ```
 
-A page carries a rewritable **compiled_truth** (the current best understanding) plus an
-append-only **timeline** (the chain of evidence). `update-truth` rewrites the truth and appends
-its timeline entry in one atomic write — so the understanding can never change without a trace.
-Pass `--summary` in the user's working language. If you omit it, `create-page` records the
-title and `update-truth` records the first line of the new text — the CLI does not invent an
-English sentence, and it does not rewrite timeline entries already stored.
+`--summary` 用用户的工作语言书写。省略时，`create-page` 记录标题，`update-truth` 记录新结论的第一行可用文本——CLI 从不自己编一句话，也从不改写已存的时间线条目。
 
-## Codex lifecycle hooks
+## 技能结构
 
-From the project root, run `brain install-hooks --agent codex`. It installs
-`.codex/hooks/brain-session-start` and merges one `SessionStart` command into
-`.codex/hooks.json`. Run `brain uninstall-hooks --agent codex` to remove it.
-No flag still means Claude Code; `--agent claude-code` is also accepted.
+Agent 侧的一切以一个技能交付，每个流程一份 reference：
 
-Use **Codex CLI 0.153.4 or newer** as the supported baseline for this integration
-([release notes](https://learn.chatgpt.com/docs/changelog)). Older releases have not
-been validated. Node 18+ and a POSIX shell with `awk` must be available to the hook
-(macOS/Linux; native Windows shells are not supported). The hook locates the CLI
-in installed skill directories or on `PATH`; `BRAIN_CLI` can specify its absolute
-`.mjs` path.
-
-Trust the project and use Codex `/hooks` to review and trust the installed command.
-Hooks must be enabled (`features.hooks`, enabled by default in this release).
-The installer leaves global configuration, `config.toml`, and trust settings alone;
-malformed settings or a foreign script at the destination produce an error without
-overwriting them. If inline TOML hooks already exist, Codex loads both sources.
-The command contains an absolute project path: **uninstall before moving a project,
-then reinstall at its new location**. Do the same for a separate clone/worktree;
-do not share the generated absolute command between machines.
-
-The [documented lifecycle](https://learn.chatgpt.com/docs/hooks) covers startup,
-resume, clear, and post-compaction through `SessionStart`. The hook resolves the
-brain via `brain brain-dir`, including relative or absolute `brainRoot` redirects,
-and emits only `brain list-pages` metadata. It exits successfully without context
-when the brain is missing/unpopulated or the CLI fails; Codex limits execution to
-five seconds. Page bodies are read on demand with `brain read-page <id>`.
-
-### Astra experimental context
-
-Codex snapshots are limited to **8 KiB of UTF-8**, preserving complete rows and
-leaving Codex's own context limit enabled. Truncated snapshots tell the agent to
-run `brain list-pages` for the full index. This keeps the same bounded behavior
-with or without Astra's experimental context management. Snapshots refresh at each
-supported boundary; an unchanged index is not suppressed across context windows.
-
-For eligible clients, opt in yourself in `config.toml`, then start a new task:
-
-```toml
-[features.context_management]
-experimental_mode = true
-```
-
-See [current eligibility and behavior](https://learn.chatgpt.com/docs/models#experimental-context-management):
-the launch guide lists ChatGPT Plus/Pro, excluding Business, Enterprise, and API-key
-sign-in; the [configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
-also lists Pro Lite. The installer does not enable this experiment or change model
-or compaction settings.
-
-When native notes/history are available, retain relevant brain page IDs and
-unresolved task state there, search earlier task history for evidence, and re-read
-brain pages for current facts after a rollover. Run `brain wire --agent codex` to
-refresh this guidance in `AGENTS.md`. Hooks never write native notes or brain pages.
-Automatic experimental-rollover delivery and the desktop app require separate
-runtime validation; do not assume all experimental rollovers emit ordinary
-compaction events. The wired instructions and explicit CLI reads remain available.
-
-
-## How it works
-
-Three design choices keep the brain durable and tamper-evident:
-
-- **Correct by construction, no validator.** The CLI is the only writer. Frontmatter is always
-  generated, and `update-truth` rewrites understanding + records why in a single atomic write.
-  The two things a validator used to guard are now structurally impossible.
-- **Exactly one brain, location-independent.** It defaults to `./brain`, but a project can
-  redirect it via `brainRoot` in `.mindmux/preferences.json` (e.g. an external sidecar). Every
-  command resolves the location itself — tools never create a second, shadow brain.
-- **Pure files, portable.** The brain is Markdown plus one Node script — it lives in your repo
-  and travels in git, and runtimes (MindMux over MCP, more to come) layer on top of the same files.
-
-The skills that drive it all:
-
-| skill | what it does |
+| 文件 | 内容 |
 |---|---|
-| **brain-setup** | same scaffold/wire as `brain init`, plus optional pre-commit and Claude Code/Codex SessionStart hooks — prefer `brain init` for day-to-day |
-| **brain-bootstrap** | seed the brain from code / docs / `git log` — or interview you on a greenfield project |
-| **brain-page** | the operating manual for reading and writing pages + root pages (carries the `brain` CLI) |
-| **brain-ingest** | digest a conversation, document, or research result into the brain |
+| [`skills/brain/SKILL.md`](skills/brain/SKILL.md) | 路由 + 不可协商的规则 |
+| [`references/protocol.md`](skills/brain/references/protocol.md) | 存储、身份、页模型、上限、命令契约 |
+| [`references/pages.md`](skills/brain/references/pages.md) | 分类、id、每个写命令的参数 |
+| [`references/setup.md`](skills/brain/references/setup.md) | 安装、wiring、环境变量、迁移 |
+| [`references/bootstrap.md`](skills/brain/references/bootstrap.md) | 从代码/文档/历史或访谈播种 |
+| [`references/ingest.md`](skills/brain/references/ingest.md) | 把对话或文档消化成页面 |
 
----
+CLI 在 `skills/brain/bin/`，库代码在 `skills/brain/lib/`，测试在 `skills/brain/test/`。
 
-<sub>brain.md is led and incubated by **MindMux** — the standalone open-source landing of
-MindMux's Brain Spec + coding-agent adapter. The specification layer uses neutral naming so it
-can be adopted widely; stewardship and maintenance belong to MindMux. Licensed under Apache-2.0.</sub>
+## 从旧的仓库内 brain 迁移
+
+刻意**不提供**对 `brain/**` 目录、`BRAIN.md` 文件或 `.mindmux/preferences.json` 的兼容层。若想保留旧内容，让 Agent 逐页迁移：读旧文件，用 `brain create-page` / `update-truth` 写入新 store。内容可以保留，但 CLI 不会永远背着历史代码。
+
+## 环境变量
+
+| 变量 | 默认值 | 含义 |
+|---|---|---|
+| `BRAIN_HOME` | `~/brain.md` | 所有项目 store 的根目录 |
+| `PI_CODING_AGENT_DIR` | `~/.pi/agent` | Pi agent 目录（含 `skills/` 与 `AGENTS.md`） |
+
+## 开发
+
+```sh
+node --test skills/brain/test/*.test.mjs
+```
+
+## 许可证
+
+Apache-2.0，见 [LICENSE](LICENSE)。

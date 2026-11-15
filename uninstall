@@ -1,6 +1,6 @@
 #!/bin/sh
-# brain.md uninstaller — thin wrapper around the Node uninstaller.
-# Prefer: brain uninstall  or  npx brain-md uninstall
+# brain.md uninstall — remove the skill link and the wired AGENTS.md block.
+# From a checkout: ./uninstall    (same as: node skills/brain/bin/brain.mjs uninstall)
 set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
-exec node "$SCRIPT_DIR/bin/brain.mjs" uninstall "$@"
+exec node "$SCRIPT_DIR/skills/brain/bin/brain.mjs" uninstall "$@"
